@@ -59,16 +59,14 @@ async def verify(verification_info: Verify, db=Depends(get_db), redis: Redis = D
     :return: A dict
     """
 
+    email = await redis.get(verification_info.code)
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid code")
+
     users = db["accounts"]
-    result = await users.find_one({"email": verification_info.email}, {"is_account_enable": 1})
+    result = await users.find_one({"email": email}, {"is_account_enable": 1})
     if result["is_account_enable"]:
         return {"your account is enabled"}
-
-    code = await redis.get(verification_info.email)
-    if not code:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email or expired code")
-    if code != verification_info.code:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid code")
 
     await users.find_one_and_update(
         filter={"email": verification_info.email},
@@ -183,7 +181,7 @@ async def reset_password_request(user_email: BaseUser, db=Depends(get_db)):
     :return: A string, which is the message that will be sent to the user
     """
     users = db["accounts"]
-    result = await users.find_one({"email": user_email.email}, {"_id": 1, "email": 1})
+    result = await users.find_one({"email": user_email.email}, {"email": 1})
     if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Email does not exist")
 
@@ -192,23 +190,23 @@ async def reset_password_request(user_email: BaseUser, db=Depends(get_db)):
 
 
 @routers.patch("/reset_password", status_code=status.HTTP_200_OK)
-async def reset_password(reset_password_info: ResetPassword, db=Depends(get_db)):
+async def reset_password(reset_password_info: ResetPassword, db=Depends(get_db),
+                         redis: Redis = Depends(get_notif_redis)):
     """
     The reset_password function takes in a ResetPassword object and returns a string.
     The function decodes the token, finds the user with that id, and updates their password to be the new_password.
 
+    :param redis:
     :param reset_password_info: ResetPassword: Validate the data that is sent to the function
     :param db: Access the database
     :return: A dictionary with a key-value pair
     """
-    reset_password_info = reset_password_info.model_dump()
-    try:
-        payload = await decode_token(reset_password_info["token"])
-    except Exception:
+    email = await redis.get(reset_password_info.code)
+    if not email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
     users = db["accounts"]
     await users.find_one_and_update(
-        filter={"_id": ObjectId(payload["id"])},
+        filter={"email": email},
         update={"$set": {"password": get_password_hash(reset_password_info["new_password"])}},
     )
     # publisher to delete code from redis
