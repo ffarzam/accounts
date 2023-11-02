@@ -69,7 +69,7 @@ async def verify(verification_info: Verify, db=Depends(get_db), redis: Redis = D
         return {"your account is enabled"}
 
     await users.find_one_and_update(
-        filter={"email": verification_info.email},
+        filter={"email": email},
         update={"$set": {"is_account_enable": True}},
     )
 
@@ -207,7 +207,7 @@ async def reset_password(reset_password_info: ResetPassword, db=Depends(get_db),
     users = db["accounts"]
     await users.find_one_and_update(
         filter={"email": email},
-        update={"$set": {"password": get_password_hash(reset_password_info["new_password"])}},
+        update={"$set": {"password": get_password_hash(reset_password_info.new_password)}},
     )
     # publisher to delete code from redis
     return {"password changed successfully"}
