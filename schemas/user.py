@@ -1,4 +1,5 @@
 import re
+from typing import List
 
 from fastapi import HTTPException, status
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
@@ -66,3 +67,6 @@ class ResetPassword(PasswordMixins):
 class Verify(BaseModel):
     code: str
 
+
+class UserIdList(BaseModel):
+    data: List
