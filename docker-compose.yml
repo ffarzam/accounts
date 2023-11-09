@@ -1,0 +1,19 @@
+
+
+services:
+
+  account:
+    build: .
+    container_name: account
+    volumes:
+      - .:/code/
+      - ./fastapi-logs:/code/log
+    ports:
+      - 8002:8002
+    restart: always
+    networks:
+      - main
+
+
+networks:
+  main:
