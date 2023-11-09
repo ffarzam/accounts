@@ -14,11 +14,11 @@ class Settings(BaseSettings):
     MONGO_HOST: str
     MONGO_PORT: int
 
-    MAIL_USERNAME: str
-    MAIL_PASSWORD: str
-    MAIL_FROM: str
-    MAIL_PORT: int
-    MAIL_SERVER: str
+    ELASTIC_HOST: str
+    ELASTIC_PORT: int
+    ELASTIC_URL: str
+
+    NOTIFICATION_CODE_SENDER: str
 
     model_config = SettingsConfigDict(env_file=".env")
 
