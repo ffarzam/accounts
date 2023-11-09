@@ -8,7 +8,7 @@ from config.jwt_authentication import get_access_jwt_aut
 from db.mongodb import get_db
 from db.redisdb import get_notif_redis
 from schemas.user import UserSignUp, UserSignIn, UserInfo, UserProfileUpdate, ShowUserProfile, ChangePassword, BaseUser, \
-    ResetPassword, Verify
+    ResetPassword, Verify, UserIdList
 from services.notification_microservice import notification_client
 from utils.user_utils import get_password_hash, verify_password
 
@@ -34,7 +34,6 @@ async def register(user: UserSignUp, db=Depends(get_db)):
 
 @routers.post("/verify", status_code=status.HTTP_200_OK)
 async def verify(verification_info: Verify, db=Depends(get_db), redis: Redis = Depends(get_notif_redis)):
-
     email = await redis.get(verification_info.code)
     if not email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid code")
@@ -55,7 +54,6 @@ async def verify(verification_info: Verify, db=Depends(get_db), redis: Redis = D
 
 @routers.post("/login", status_code=status.HTTP_200_OK)
 async def login(request: Request, user: UserSignIn, db=Depends(get_db)):
-
     users = db["accounts"]
     result = await users.find_one({"email": user.email}, {"_id": 1, "email": 1, "password": 1, "is_account_enable": 1})
 
@@ -85,7 +83,6 @@ async def show_profile(request: Request, payload: dict = Depends(get_access_jwt_
 @routers.patch("/update_profile", status_code=status.HTTP_200_OK)
 async def profile_update(user_data: UserProfileUpdate, payload: dict = Depends(get_access_jwt_aut()),
                          db=Depends(get_db)):
-
     users = db["accounts"]
     result = await users.find_one_and_update(
         filter={"_id": ObjectId(payload["id"])},
@@ -99,7 +96,6 @@ async def profile_update(user_data: UserProfileUpdate, payload: dict = Depends(g
 
 @routers.patch("/change_password", status_code=status.HTTP_200_OK)
 async def profile_update(user_data: ChangePassword, payload: dict = Depends(get_access_jwt_aut()), db=Depends(get_db)):
-
     users = db["accounts"]
     result = await users.find_one({"_id": ObjectId(payload["id"])}, {"password": 1})
     if not verify_password(user_data.old_password, result["password"]):
@@ -113,7 +109,6 @@ async def profile_update(user_data: ChangePassword, payload: dict = Depends(get_
 
 @routers.post("/reset_password_request", status_code=status.HTTP_200_OK)
 async def reset_password_request(request: Request, user_email: BaseUser, db=Depends(get_db)):
-
     users = db["accounts"]
     result = await users.find_one({"email": user_email.email}, {"email": 1})
     if not result:
@@ -126,7 +121,6 @@ async def reset_password_request(request: Request, user_email: BaseUser, db=Depe
 @routers.patch("/reset_password", status_code=status.HTTP_200_OK)
 async def reset_password(reset_password_info: ResetPassword, db=Depends(get_db),
                          redis: Redis = Depends(get_notif_redis)):
-
     email = await redis.get(reset_password_info.code)
     if not email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
@@ -137,3 +131,19 @@ async def reset_password(reset_password_info: ResetPassword, db=Depends(get_db),
     )
     # publisher to delete code from redis
     return {"password changed successfully"}
+
+
+@routers.post("/get_user_email/", status_code=status.HTTP_200_OK)
+async def get_user_mail(user_id_list: UserIdList, db=Depends(get_db)):
+    user_id_list = user_id_list.model_dump()
+
+    user_data = db.accounts.find({}, {"_id": 1, "email": 1, })
+    user_data = await user_data.to_list(length=None)
+
+    user_email_list = []
+    for item in iter(user_data):
+
+        if str(item["_id"]) in user_id_list["data"]:
+            user_email_list.append(item["email"])
+
+    return user_email_list
